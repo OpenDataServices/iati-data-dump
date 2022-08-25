@@ -31,14 +31,11 @@ jobs:
         ./reset_folders.sh >/dev/null
     - name: Pull iati-data repo
       run: |
-        git clone --quiet https://iati-data-repo:${{ secrets.GITLAB_TOKEN }}@gitlab.com/codeforIATI/iati-data.git
-        rm -rf iati-data/metadata iati-data/metadata.json
-        mv iati-data/data cache
+        mkdir iati-data
         echo "START_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> $GITHUB_ENV
     - name: Fetch URLs and metadata
       run: |
-        python grab_urls.py --cache
-        rm -rf cache
+        python grab_urls.py
     - name: Fetch data
       run: |
         ./fetch_data.sh
@@ -52,23 +49,31 @@ jobs:
         mv metadata iati-data
         mv data iati-data
         cp metadata.json iati-data
-    - name: Push to gitlab
-      run: |
-        cd iati-data
-        git config --global user.name 'Code for IATI bot'
-        git config --global user.email '10231116-codeforIATIbot@users.noreply.gitlab.com'
-        git config core.autocrlf false
-        git add .
-        git commit --quiet --message='Update'
-        git push --quiet origin main
-        cd ..
-    - name: Adding token to .gist
-      run: |
-        echo "${{ secrets.GH_TOKEN }}" > ~/.gist
-        bundle exec gist -u efd190029713c6775c43962444dcb8df metadata.json
-    - name: Uploading errors to gist
-      run: |
-        bundle exec gist -u f117c9be138aa94c9762d57affc51a64 errors
+        zip -r iati-data.zip iati-data
+    - uses: BetaHuhn/do-spaces-action@v2
+      with:
+        access_key: ${{ secrets.DO_ACCESS_KEY}}
+        secret_key: ${{ secrets.DO_SECRET_KEY }}
+        space_name: ${{ secrets.DO_SPACE_NAME }}
+        space_region: ${{ secrets.DO_SPACE_REGION }}
+        source: iati-data.zip
+#   - name: Push to gitlab
+#     run: |
+#       cd iati-data
+#       git config --global user.name 'Code for IATI bot'
+#       git config --global user.email '10231116-codeforIATIbot@users.noreply.gitlab.com'
+#       git config core.autocrlf false
+#       git add .
+#       git commit --quiet --message='Update'
+#       git push --quiet origin main
+#       cd ..
+#   - name: Adding token to .gist
+#     run: |
+#       echo "${{ secrets.GH_TOKEN }}" > ~/.gist
+#       bundle exec gist -u efd190029713c6775c43962444dcb8df metadata.json
+#   - name: Uploading errors to gist
+#     run: |
+#       bundle exec gist -u f117c9be138aa94c9762d57affc51a64 errors
     - name: Tidy up
       run: |
         rm -rf metadata.json errors iati-data
